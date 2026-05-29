@@ -2,7 +2,7 @@ from sqlalchemy import String, DateTime
 from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column
 from datetime import datetime
-from backend.core.database import Base
+from core.database import Base
 
 class Instance(Base):
     __tablename__ = "instances"

@@ -3,24 +3,24 @@ from fastapi import HTTPException
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from backend.models import Instance
 
-def _provision_vm_in_openstack():
+from models import Instance
+from schemas import InstanceRequest
+from core.config import config
+
+def _provision_vm_in_openstack(name_instance: str, name_image: str, name_flavor: str):
     print("Connecting to openstack...")
     conn = openstack.connect(
-        auth_url="http://192.168.122.120:5000/v3",
-        project_name="admin",
-        username="admin",
-        password="neGMOT7LGOLYdIngmMK9AlGhoNMGnikL5tdnjU8u",
-        user_domain_name="Default",
-        project_domain_name="Default"
+        auth_url=config.OS_AUTH_URL,
+        project_name=config.OS_PROJECT_NAME,
+        username=config.OS_USERNAME,
+        password=config.OS_PASSWORD,
+        user_domain_name=config.OS_USER_DOMAIN_NAME,
+        project_domain_name=config.OS_PROJECT_DOMAIN_NAME
     )
 
-    name_instance = "test-db-vm-1"
-    name_image = "cirros"
-    name_flavor = "m1.tiny"
-    name_network = "private-net"
-    name_key = "my-key"
+    name_network = "demo-net"
+    name_key = "mykey"
     sec_group = "default"
 
     image = conn.compute.find_image(name_image)
@@ -49,12 +49,12 @@ def _provision_vm_in_openstack():
 def _delete_vm_in_openstack(openstack_id: str):
     print("connecting to openstack...")
     conn = openstack.connect(
-        auth_url="http://192.168.122.120:5000/v3",
-        project_name="admin",
-        username="admin",
-        password="neGMOT7LGOLYdIngmMK9AlGhoNMGnikL5tdnjU8u",
-        user_domain_name="Default",
-        project_domain_name="Default"
+        auth_url=config.OS_AUTH_URL,
+        project_name=config.OS_PROJECT_NAME,
+        username=config.OS_USERNAME,
+        password=config.OS_PASSWORD,
+        user_domain_name=config.OS_USER_DOMAIN_NAME,
+        project_domain_name=config.OS_PROJECT_DOMAIN_NAME
     )
 
     server = conn.compute.find_server(openstack_id)
@@ -65,8 +65,13 @@ def _delete_vm_in_openstack(openstack_id: str):
         print("instance not found in openstack")
 
 
-async def create_instance(db: AsyncSession):
-    server_os = await run_in_threadpool(_provision_vm_in_openstack)
+async def create_instance(db: AsyncSession, instance_data: InstanceRequest):
+    server_os = await run_in_threadpool(
+        _provision_vm_in_openstack,
+        name_instance=instance_data.name,
+        name_image=instance_data.image_name,
+        name_flavor=instance_data.flavor_name
+    )
 
     print(f"Salvez instanța {server_os.name} în baza de date...")
 
@@ -74,8 +79,8 @@ async def create_instance(db: AsyncSession):
         name=server_os.name,
         openstack_id=server_os.id,
         status=server_os.status,
-        flavor_name="m1.tiny",
-        image_name="cirros"
+        flavor_name=instance_data.flavor_name,
+        image_name=instance_data.image_name
     )
 
     db.add(new_instance)

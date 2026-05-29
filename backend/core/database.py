@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import (
     AsyncEngine,
 )
 from sqlalchemy.orm import DeclarativeBase
-from backend.core.config import config
+from core.config import config
 
 class Base(DeclarativeBase):
     pass

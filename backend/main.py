@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from backend.core.database import sessionmanager, Base
-from backend.routers import router as instance_router
+from core.database import sessionmanager, Base
+from routers import router as instance_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
