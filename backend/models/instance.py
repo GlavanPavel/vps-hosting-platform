@@ -18,6 +18,7 @@ class Instance(Base):
     status: Mapped[str] = mapped_column(String(20), default="BUILD")
     flavor_name: Mapped[str] = mapped_column(String(50), nullable=True)
     image_name: Mapped[str] = mapped_column(String(50), nullable=True)
+    ip_address: Mapped[str] = mapped_column(String(50), nullable=True)
 
     # data si ora la care a fost ceruta instanta
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

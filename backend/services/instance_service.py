@@ -5,49 +5,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from models import Instance
-from schemas import InstanceRequest
+from schemas.instance import InstanceRequest
 from core.config import config
 
-def _provision_vm_in_openstack(name_instance: str, name_image: str, name_flavor: str):
-    print("Connecting to openstack...")
-    conn = openstack.connect(
-        auth_url=config.OS_AUTH_URL,
-        project_name=config.OS_PROJECT_NAME,
-        username=config.OS_USERNAME,
-        password=config.OS_PASSWORD,
-        user_domain_name=config.OS_USER_DOMAIN_NAME,
-        project_domain_name=config.OS_PROJECT_DOMAIN_NAME
-    )
-
-    name_network = "demo-net"
-    name_key = "mykey"
-    sec_group = "default"
-
-    image = conn.compute.find_image(name_image)
-    flavor = conn.compute.find_flavor(name_flavor)
-    network = conn.network.find_network(name_network)
-    keypair = conn.compute.find_keypair(name_key)
-
-    if not all([image, flavor, network, keypair]):
-        raise HTTPException(status_code=404, detail="Error: resource not found")
-
-    server = conn.compute.create_server(
-        name=name_instance,
-        image_id=image.id,
-        flavor_id=flavor.id,
-        networks=[{"uuid": network.id}],
-        key_name=keypair.name,
-        security_groups=[{"name": sec_group}]
-    )
-
-    print("Waiting for the instance to become active...")
-    server = conn.compute.wait_for_server(server)
-
-    return server
+# --- NOU: Importăm task-ul Celery creat anterior ---
+from tasks.vm_tasks import create_vm_background
 
 
 def _delete_vm_in_openstack(openstack_id: str):
-    print("connecting to openstack...")
+    """ Această funcție rămâne aici deocamdată.
+    O vom putea muta în Celery mai târziu. """
+    print("Connecting to openstack...")
     conn = openstack.connect(
         auth_url=config.OS_AUTH_URL,
         project_name=config.OS_PROJECT_NAME,
@@ -62,23 +30,12 @@ def _delete_vm_in_openstack(openstack_id: str):
         conn.compute.delete_server(server)
         conn.compute.wait_for_delete(server)
     else:
-        print("instance not found in openstack")
+        print("Instance not found in openstack")
 
 
 async def create_instance(db: AsyncSession, instance_data: InstanceRequest):
-    server_os = await run_in_threadpool(
-        _provision_vm_in_openstack,
-        name_instance=instance_data.name,
-        name_image=instance_data.image_name,
-        name_flavor=instance_data.flavor_name
-    )
-
-    print(f"Salvez instanța {server_os.name} în baza de date...")
-
     new_instance = Instance(
-        name=server_os.name,
-        openstack_id=server_os.id,
-        status=server_os.status,
+        name=instance_data.name,
         flavor_name=instance_data.flavor_name,
         image_name=instance_data.image_name
     )
@@ -87,11 +44,21 @@ async def create_instance(db: AsyncSession, instance_data: InstanceRequest):
     await db.commit()
     await db.refresh(new_instance)
 
+    print(f"Instanța '{new_instance.name}' (ID DB: {new_instance.id}) a fost salvată ca BUILD. Trimit la RabbitMQ...")
+
+    # sending task to celery
+    create_vm_background.delay(
+        instance_id=new_instance.id,
+        name_instance=instance_data.name,
+        name_image=instance_data.image_name,
+        name_flavor=instance_data.flavor_name
+    )
+
     return {
         "db_id": new_instance.id,
         "server_name": new_instance.name,
-        "openstack_id": new_instance.openstack_id,
-        "status": new_instance.status
+        "status": new_instance.status,
+        "message": "Creating server"
     }
 
 
