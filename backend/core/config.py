@@ -22,6 +22,15 @@ class Settings(BaseSettings):
     OS_USER_DOMAIN_NAME: str = "Default"
     OS_PROJECT_DOMAIN_NAME: str = "Default"
 
+    # openstack networking — the external provider network for floating IP allocation
+    OS_EXTERNAL_NETWORK: str = "public"
+
+    # influxdb
+    INFLUXDB_URL: str = "http://localhost:8086"
+    INFLUXDB_ADMIN_TOKEN: str
+    INFLUXDB_ORG: str
+    INFLUXDB_BUCKET: str
+
     model_config = SettingsConfigDict(
         env_file=env_file_path,
         env_file_encoding="utf-8",

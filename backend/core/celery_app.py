@@ -3,7 +3,7 @@ from celery import Celery
 celery_app = Celery(
     "vps_tasks",
     broker="amqp://guest:guest@localhost:5672//",
-    include=['tasks.vm_tasks']
+    include=['tasks.vm_tasks', 'tasks.telemetry']
 )
 
 celery_app.conf.update(
@@ -13,3 +13,12 @@ celery_app.conf.update(
     timezone='Europe/Bucharest',
     enable_utc=True,
 )
+
+celery_app.conf.beat_schedule = {
+    'colecteaza-metrice-la-fiecare-60s': {
+        'task': 'collect_telemetry_data',
+        'schedule': 60.0,
+    },
+}
+
+celery_app.conf.timezone = 'Europe/Bucharest'

@@ -1,28 +1,25 @@
-from typing import Annotated
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter
+from routers.deps import UowDep, CurrentUserDep
+from schemas.instance import InstanceRequest, InstanceResponse
+import services
 
-from core.database import get_db_session
-import services as services
-from schemas import InstanceRequest
-
-SessionDep = Annotated[AsyncSession, Depends(get_db_session)]
-router = APIRouter(prefix="/instances", tags=["instances"])
-
-@router.get("/")
-async def get_instances(db: SessionDep):
-    return await services.get_all_instances(db=db)
+instance_router = APIRouter(prefix="/instances", tags=["instances"])
 
 
-@router.post("/")
-async def create_vm_endpoint(
-        instance_data: InstanceRequest,
-        db: SessionDep
-):
-    return await services.create_instance(db=db, instance_data=instance_data)
-@router.delete("/{instance_id}")
-async def delete_vm_endpoint(
-    instance_id: int,
-    db: SessionDep
-):
-    return await services.delete_instance(db=db, instance_id=instance_id)
+@instance_router.get("/", response_model=list[InstanceResponse])
+async def list_instances(uow: UowDep, user_id: CurrentUserDep):
+    user = await uow.users.get_by_id(user_id)
+    return await services.get_instances(uow=uow, organization_id=user.organization_id)
+
+
+@instance_router.post("/", response_model=InstanceResponse, status_code=201)
+async def create_instance(data: InstanceRequest, uow: UowDep, user_id: CurrentUserDep):
+    return await services.create_instance(uow=uow, data=data, user_id=user_id)
+
+
+@instance_router.delete("/{instance_id}", status_code=200)
+async def delete_instance(instance_id: int, uow: UowDep, user_id: CurrentUserDep):
+    user = await uow.users.get_by_id(user_id)
+    return await services.delete_instance(
+        uow=uow, instance_id=instance_id, organization_id=user.organization_id
+    )

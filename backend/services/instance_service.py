@@ -1,85 +1,91 @@
-import openstack
 from fastapi import HTTPException
-from fastapi.concurrency import run_in_threadpool
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-
-from models import Instance
-from schemas.instance import InstanceRequest
-from core.config import config
-
-# --- NOU: Importăm task-ul Celery creat anterior ---
-from tasks.vm_tasks import create_vm_background
+from core.unit_of_work import UnitOfWork
+from models.instance import Instance
+from schemas.instance import InstanceRequest, InstanceResponse
+from domain.events import InstanceProvisioningStarted, InstanceDeletionRequested
+from domain.dispatcher import dispatch
 
 
-def _delete_vm_in_openstack(openstack_id: str):
-    """ Această funcție rămâne aici deocamdată.
-    O vom putea muta în Celery mai târziu. """
-    print("Connecting to openstack...")
-    conn = openstack.connect(
-        auth_url=config.OS_AUTH_URL,
-        project_name=config.OS_PROJECT_NAME,
-        username=config.OS_USERNAME,
-        password=config.OS_PASSWORD,
-        user_domain_name=config.OS_USER_DOMAIN_NAME,
-        project_domain_name=config.OS_PROJECT_DOMAIN_NAME
+async def create_instance(uow: UnitOfWork, data: InstanceRequest, user_id: int) -> InstanceResponse:
+    user = await uow.users.get_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    keypair = await uow.keypairs.get_by_id_and_user(data.keypair_id, user_id)
+    if not keypair:
+        raise HTTPException(status_code=404, detail="Keypair not found or does not belong to this user")
+    if not keypair.openstack_name:
+        raise HTTPException(status_code=422, detail="Keypair has not been uploaded to OpenStack yet")
+
+    subnet = await uow.subnets.get_by_id_and_org(data.subnet_id, user.organization_id)
+    if not subnet:
+        raise HTTPException(status_code=404, detail="Subnet not found or does not belong to this organization")
+    if not subnet.openstack_subnet_id:
+        raise HTTPException(status_code=422, detail="Subnet has not been provisioned in OpenStack yet")
+
+    security_groups = await uow.security_groups.get_by_ids_and_org(
+        data.security_group_ids, user.organization_id
     )
+    if len(security_groups) != len(data.security_group_ids):
+        raise HTTPException(status_code=404, detail="One or more security groups not found or unauthorized")
 
-    server = conn.compute.find_server(openstack_id)
-    if server:
-        conn.compute.delete_server(server)
-        conn.compute.wait_for_delete(server)
-    else:
-        print("Instance not found in openstack")
+    missing_os_id = [sg.name for sg in security_groups if not sg.openstack_id]
+    if missing_os_id:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Security groups not yet provisioned in OpenStack: {missing_os_id}",
+        )
 
-
-async def create_instance(db: AsyncSession, instance_data: InstanceRequest):
-    new_instance = Instance(
-        name=instance_data.name,
-        flavor_name=instance_data.flavor_name,
-        image_name=instance_data.image_name
+    instance = Instance(
+        organization_id=user.organization_id,
+        user_id=user_id,
+        name=data.name,
+        flavor_name=data.flavor_name,
+        image_name=data.image_name,
+        keypair_id=keypair.id,
+        subnet_id=subnet.id,
+        status="BUILD",
     )
+    instance.security_groups = security_groups
 
-    db.add(new_instance)
-    await db.commit()
-    await db.refresh(new_instance)
+    await uow.instances.add(instance)
+    await uow.commit()
+    await uow.refresh(instance)
 
-    print(f"Instanța '{new_instance.name}' (ID DB: {new_instance.id}) a fost salvată ca BUILD. Trimit la RabbitMQ...")
+    dispatch(InstanceProvisioningStarted(
+        instance_id=instance.id,
+        name=instance.name,
+        image_name=instance.image_name,
+        flavor_name=instance.flavor_name,
+        keypair_openstack_name=keypair.openstack_name,
+        subnet_openstack_id=subnet.openstack_subnet_id,
+        security_group_openstack_ids=[sg.openstack_id for sg in security_groups],
+    ))
 
-    # sending task to celery
-    create_vm_background.delay(
-        instance_id=new_instance.id,
-        name_instance=instance_data.name,
-        name_image=instance_data.image_name,
-        name_flavor=instance_data.flavor_name
-    )
-
-    return {
-        "db_id": new_instance.id,
-        "server_name": new_instance.name,
-        "status": new_instance.status,
-        "message": "Creating server"
-    }
+    return InstanceResponse.model_validate(instance)
 
 
-async def delete_instance(db: AsyncSession, instance_id: int):
-    instance_db = await db.get(Instance, instance_id)
+async def delete_instance(uow: UnitOfWork, instance_id: int, organization_id: int) -> dict:
+    instance = await uow.instances.get_by_id_and_org(instance_id, organization_id)
+    if not instance:
+        raise HTTPException(status_code=404, detail="Instance not found")
 
-    if not instance_db:
-        raise HTTPException(status_code=404, detail="instance id not found in database")
+    if instance.openstack_id:
+        instance.status = "DELETING"
+        await uow.commit()
 
-    if instance_db.openstack_id:
-        await run_in_threadpool(_delete_vm_in_openstack, instance_db.openstack_id)
+        dispatch(InstanceDeletionRequested(
+            instance_id=instance.id,
+            openstack_id=instance.openstack_id,
+        ))
+        return {"message": "Deletion request registered"}
 
-    await db.delete(instance_db)
-    await db.commit()
+    # instance never made it to OpenStack — safe to hard-delete
+    await uow.instances.delete(instance)
+    await uow.commit()
+    return {"message": "Incomplete instance removed from database"}
 
-    return {"message": "success"}
 
-
-async def get_all_instances(db: AsyncSession):
-    query = select(Instance)
-    rezultat = await db.execute(query)
-    instante = rezultat.scalars().all()
-
-    return instante
+async def get_instances(uow: UnitOfWork, organization_id: int) -> list[InstanceResponse]:
+    instances = await uow.instances.get_by_org(organization_id)
+    return [InstanceResponse.model_validate(i) for i in instances]
