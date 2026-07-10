@@ -1,0 +1,48 @@
+\chapter{Introducere}
+\label{cap:cap1}
+
+\section{Contextul și importanța temei alese}
+
+În contextul actual al industriei IT, serviciile de tip IaaS (Infrastructure as a Service) au devenit fundamentale pentru dezvoltarea și implementarea aplicațiilor software la nivel global. Creșterea exponențială a complexității sistemelor distribuite i-a determinat pe specialiștii în domeniu să caute soluții tot mai flexibile și scalabile pentru gestionarea resurselor de calcul. Deși există soluții open-source robuste pentru orchestrarea infrastructurii cloud, așa cum este platforma OpenStack, complexitatea acestora reprezintă adesea o barieră semnificativă pentru utilizatorii finali sau pentru întreprinderile mici.
+
+Interfața nativă a sistemului OpenStack (Horizon) oferă un control granular asupra rețelelor și unităților de stocare, însă este prea complexă pentru sarcini uzuale, cum ar fi lansarea rapidă a unui server virtual (VPS). Pe piața comercială, soluții precum Amazon Web Services (AWS) reprezintă standardul industriei oferind o modularitate înaltă, dar au dezavantajul unor costuri și complexități ridicate. La polul opus se află platforme axate pe o experiență de utilizare fluidă, precum DigitalOcean, care validează nevoia de interfețe minimaliste ce ascund detaliile tehnice față de utilizator. 
+
+Prezenta lucrare abordează această necesitate, propunând dezvoltarea unei platforme intermediare care să abstractizeze complexitatea infrastructurii OpenStack. Importanța temei rezidă în crearea unei soluții software care să ofere o experiență de tip „One-Click Deploy”, facilitând provizionarea, monitorizarea în timp real și gestionarea eficientă a mașinilor virtuale, fiind o alternativă ideală pentru cloud-uri private sau medii educaționale.
+
+\section{Obiectivele generale și specifice ale lucrării}
+
+\textbf{Obiectivul general} al acestui proiect de diplomă constă în proiectarea și implementarea unei aplicații web complete, compusă din interfață grafică, strat de servicii backend și baze de date, care să interacționeze cu API-urile OpenStack pentru a oferi servicii automatizate de tip VPS.
+
+Pentru atingerea acestui scop, au fost definite următoarele \textbf{obiective specifice}:
+\begin{itemize}
+    \item \textbf{Proiectarea unei arhitecturi decuplate și orientate pe evenimente:} Separarea logică a interfeței cu utilizatorul (frontend) de logica de business (backend), de procesarea asincronă și de infrastructura hardware, pe baza unui principiu de bază conform căruia stratul API operează exclusiv asupra propriilor baze de date, fără a apela în mod direct infrastructura OpenStack.
+    \item \textbf{Abstractizarea completă a resurselor de infrastructură:} Provizionarea automată și transparentă a rețelelor virtuale, a subrețelelor și a ruterelor (Neutron), a volumelor de stocare la nivel de bloc (Cinder), a imaginilor de sistem (Glance), a grupurilor de securitate și a adreselor IP publice (\textit{floating IPs}), astfel încât utilizatorul să furnizeze doar parametrii esențiali ai unei mașini virtuale.
+    \item \textbf{Automatizarea întregului ciclu de viață al instanțelor:} Controlul stărilor (creare, inclusiv în loturi, pornire, oprire, repornire și ștergere), captura de imagini (\textit{snapshot}), precum și accesul la consola grafică și la jurnalul de sistem al fiecărei mașini virtuale.
+    \item \textbf{Implementarea procesării asincrone:} Utilizarea unui sistem de cozi de mesaje (RabbitMQ) și a unor procese de fundal (Celery) pentru a preveni blocarea interfeței web în timpul operațiunilor de durată, cum ar fi crearea mașinilor virtuale.
+    \item \textbf{Realizarea unui model multi-tenant cu control al accesului bazat pe roluri (RBAC):} Organizarea utilizatorilor în organizații distincte, izolate logic, cu roluri diferite (proprietar, membru și administrator de platformă) și cu un sistem de cote (\textit{quotas}) configurabile pentru limitarea resurselor consumate de fiecare organizație.
+    \item \textbf{Dezvoltarea unei console de administrare la nivel de platformă:} Oferirea unei vizibilități asupra tuturor organizațiilor și utilizatorilor, precum și monitorizarea capacității reale a cluster-ului OpenStack (procesoare, memorie și spațiu de stocare disponibile).
+    \item \textbf{Dezvoltarea unui sistem de telemetrie:} Monitorizarea performanței (consum CPU) prin integrarea unor baze de date specializate pe serii de timp (Time-Series).
+    \item \textbf{Implementarea unui model de securitate:} Integrarea unui mecanism de autentificare bazat pe token-uri JWT stocate în cookie-uri de tip \textit{httpOnly}, cu token de reîmprospătare (\textit{refresh token}) și posibilitate de revocare a sesiunii, precum și oferirea accesului securizat la consola mașinii virtuale (NoVNC) direct din browser.
+\end{itemize}
+
+\section{Metodologia de cercetare utilizată}
+
+Pentru realizarea acestui proiect s-a adoptat o metodologie iterativă de dezvoltare a sistemelor software, etapizată logic de la fundamentarea teoretică până la implementarea practică. 
+
+În faza inițială de documentare, au fost analizate soluțiile existente pe piață, identificându-se avantajele și limitările platformelor comerciale (AWS EC2, DigitalOcean, Fleio) pentru a contura arhitectura optimă a propriului sistem. Ulterior, s-a trecut la etapa de proiectare, unde s-au definit cerințele funcționale și s-au realizat machetele (wireframes) pentru interfața grafică, punând accent pe experiența utilizatorului (UX).
+
+La nivel de implementare practică, s-a optat pentru o arhitectură decuplată, orientată pe servicii. Frontend-ul aplicației este dezvoltat utilizând framework-ul Vue.js, organizat prin meta-framework-ul Nuxt, în timp ce logica de management este deservită de un API REST construit cu Python și FastAPI. Pentru a rezolva constrângerile de timp impuse de infrastructură, operațiunile de provizionare sunt trimise unui broker de mesaje (RabbitMQ) și procesate în fundal de către workeri Celery. Infrastructura de bază rulează pe un server configurat ca un „Private Cloud”, găzduind serviciile OpenStack (Keystone, Nova, Neutron, Glance și Cinder) desfășurate în mod containerizat prin Kolla-Ansible, în timp ce persistența datelor este asigurată de MariaDB (date relaționale) și InfluxDB (telemetrie pe serii de timp).
+
+\section{Structura generală a lucrării}
+
+Lucrarea de față este structurată în cinci capitole principale, după cum urmează:
+
+\textbf{Capitolul 1 (Introducere)} prezintă contextul, motivația și obiectivele generale ale dezvoltării platformei de găzduire VPS, precum și metodologia utilizată pe parcursul proiectului.
+
+\textbf{Capitolul 2 (Fundamentarea teoretică și soluții similare)} oferă o analiză a conceptelor de Cloud Computing, virtualizare, procesare asincronă și sisteme de mesagerie. De asemenea, sunt evaluate soluțiile similare existente pe piață și limitările acestora.
+
+\textbf{Capitolul 3 (Soluția propusă)} reprezintă partea principală a lucrării. Sunt descrise în detaliu arhitectura sistemului, proiectarea bazelor de date, comunicarea asincronă prin RabbitMQ și Celery, precum și design-ul interfeței grafice.
+
+\textbf{Capitolul 4 (Testarea soluției și rezultate experimentale)} ilustrează mediul de testare, modul de configurare și rulare a platformei. Prezintă fluxul complet de execuție, monitorizarea resurselor și validarea arhitecturii asincrone.
+
+\textbf{Capitolul 5 (Concluzii)} prezintă rezultatele finale ale proiectului în raport cu obiectivele inițiale, evidențiază contribuțiile aduse domeniului și propune direcții viitoare de extindere a platformei.

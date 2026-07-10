@@ -1,5 +1,5 @@
-from fastapi import APIRouter
-from routers.deps import UowDep, CurrentUserDep
+from fastapi import APIRouter, Depends
+from routers.deps import UowDep, CurrentUserDep, require_permission
 from schemas.network import NetworkCreate, NetworkResponse, FloatingIPResponse
 import services
 
@@ -20,7 +20,10 @@ async def create_network(data: NetworkCreate, uow: UowDep, user_id: CurrentUserD
     )
 
 
-@network_router.delete("/{network_id}", status_code=200)
+@network_router.delete(
+    "/{network_id}", status_code=200,
+    dependencies=[Depends(require_permission("network:delete"))],
+)
 async def delete_network(network_id: int, uow: UowDep, user_id: CurrentUserDep):
     user = await uow.users.get_by_id(user_id)
     return await services.delete_network(

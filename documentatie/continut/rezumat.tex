@@ -1,0 +1,25 @@
+\newpage
+\begin{center}
+    \LARGE
+    \textbf{\thesistitle}
+    
+    \vspace{0.5cm}
+    
+    \authornamefl
+    
+    \vspace{1cm}
+    
+    \textbf{Rezumat}
+    
+    \vspace{1cm}
+\end{center}
+
+
+În contextul actual al industriei IT, infrastructurile de tip cloud privat, cum ar fi platforma open-source OpenStack, oferă un control complet asupra resurselor de calcul, rețea și stocare, însă complexitatea lor reprezintă o barieră semnificativă pentru utilizatorul final. Prezenta lucrare propune o platformă intermediară (\textit{middleware}) care abstractizează această complexitate, oferind o experiență de provizionare și management de tip „\textit{One-Click Deploy}" pentru servere virtuale (VPS), comparabilă cu cea a soluțiilor comerciale, peste o infrastructură OpenStack proprie.
+
+Soluția este construită pe o arhitectură decuplată și orientată pe evenimente, în care nivelul API (FastAPI) operează exclusiv asupra propriilor baze de date, în timp ce întreaga interacțiune cu infrastructura OpenStack este delegată unor procese de fundal (Celery), prin intermediul unui broker de mesaje. Acest principiu asigură receptivitatea interfeței, reziliența la erorile de infrastructură și testabilitatea sistemului. Platforma automatizează întregul ciclu de viață al instanțelor, abstractizează resursele de rețea și de stocare și implementează un model multi-tenant cu control al accesului bazat pe roluri și cote configurabile.
+
+Validarea funcțională, realizată pe un cluster OpenStack desfășurat prin Kolla-Ansible, a confirmat provizionarea cu succes a mașinilor virtuale, accesul prin chei SSH și prin consola noVNC, demonstrând viabilitatea soluției ca alternativă open source pentru cloud-uri private și medii educaționale.
+
+\vspace{0.5cm}
+\noindent\textbf{Cuvinte-cheie:} cloud privat, OpenStack, IaaS, arhitectură orientată pe evenimente, procesare asincronă, provizionare VPS, sistem multi-tenant.

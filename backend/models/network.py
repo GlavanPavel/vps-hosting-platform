@@ -12,6 +12,7 @@ class Network(Base):
     organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     openstack_network_id: Mapped[str | None] = mapped_column(String(50), nullable=True, unique=True)
+    openstack_router_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     organization: Mapped["Organization"] = relationship("Organization", back_populates="networks")
@@ -26,7 +27,7 @@ class Subnet(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     network_id: Mapped[int] = mapped_column(ForeignKey("networks.id"), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    # CIDR block, e.g. 10.0.1.0/24
+    # CIDR block e.g. 10.0.1.0/24
     cidr: Mapped[str] = mapped_column(String(50), nullable=False)
     openstack_subnet_id: Mapped[str | None] = mapped_column(String(50), nullable=True, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

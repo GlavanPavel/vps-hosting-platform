@@ -5,7 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.database import Base
 
 
-# Many-to-Many junction table — not a full ORM model, just a plain table
+# many-to-many junction table
 instance_security_groups = Table(
     "instance_security_groups",
     Base.metadata,

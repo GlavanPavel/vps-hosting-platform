@@ -3,7 +3,10 @@ from celery import Celery
 celery_app = Celery(
     "vps_tasks",
     broker="amqp://guest:guest@localhost:5672//",
-    include=['tasks.vm_tasks', 'tasks.telemetry']
+    # rpc backend returns task results over RabbitMQ
+    backend="rpc://",
+    # imports all tasks
+    include=['tasks']
 )
 
 celery_app.conf.update(
@@ -17,6 +20,21 @@ celery_app.conf.update(
 celery_app.conf.beat_schedule = {
     'colecteaza-metrice-la-fiecare-60s': {
         'task': 'collect_telemetry_data',
+        'schedule': 60.0,
+    },
+    # periodic health check
+    'sync-instance-states-30s': {
+        'task': 'sync_instance_states',
+        'schedule': 30.0,
+    },
+    # usage metering
+    'meter-usage-60s': {
+        'task': 'meter_usage',
+        'schedule': 60.0,
+    },
+    # admin dashboard
+    'collect-cloud-stats-60s': {
+        'task': 'collect_cloud_stats',
         'schedule': 60.0,
     },
 }

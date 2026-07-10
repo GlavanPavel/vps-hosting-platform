@@ -40,6 +40,12 @@ class FloatingIPResponse(BaseModel):
     external_network_name: str
     status: str
     instance_id: int | None
+    # name of the attached instance, when any — filled by the service for display
+    instance_name: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class FloatingIPAssociate(BaseModel):
+    instance_id: int

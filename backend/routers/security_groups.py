@@ -1,5 +1,5 @@
-from fastapi import APIRouter
-from routers.deps import UowDep, CurrentUserDep
+from fastapi import APIRouter, Depends
+from routers.deps import UowDep, CurrentUserDep, require_permission
 from schemas.security_group import SecurityGroupCreate, SecurityGroupResponse
 import services
 
@@ -20,7 +20,10 @@ async def create_security_group(data: SecurityGroupCreate, uow: UowDep, user_id:
     )
 
 
-@security_group_router.delete("/{sg_id}", status_code=200)
+@security_group_router.delete(
+    "/{sg_id}", status_code=200,
+    dependencies=[Depends(require_permission("security_group:delete"))],
+)
 async def delete_security_group(sg_id: int, uow: UowDep, user_id: CurrentUserDep):
     user = await uow.users.get_by_id(user_id)
     return await services.delete_security_group(

@@ -9,12 +9,15 @@ from repositories import (
     NetworkRepository,
     SubnetRepository,
     FloatingIPRepository,
+    VolumeRepository,
+    ImageRepository,
+    CloudStatsRepository,
+    QuotaRepository,
+    InstanceEventRepository,
 )
 
 
 class UnitOfWork:
-    """Bundles all repositories under a single session so a service method
-    can span multiple repos and commit once."""
 
     def __init__(self, session: AsyncSession):
         self._session = session
@@ -27,6 +30,11 @@ class UnitOfWork:
         self.networks = NetworkRepository(session)
         self.subnets = SubnetRepository(session)
         self.floating_ips = FloatingIPRepository(session)
+        self.volumes = VolumeRepository(session)
+        self.images = ImageRepository(session)
+        self.cloud_stats = CloudStatsRepository(session)
+        self.quotas = QuotaRepository(session)
+        self.instance_events = InstanceEventRepository(session)
 
     async def commit(self) -> None:
         await self._session.commit()

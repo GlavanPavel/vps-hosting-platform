@@ -31,7 +31,6 @@ class SubnetRepository(BaseRepository[Subnet]):
         super().__init__(session, Subnet)
 
     async def get_by_id_and_org(self, subnet_id: int, organization_id: int) -> Subnet | None:
-        """Join through Network to enforce org boundary."""
         result = await self._session.execute(
             select(Subnet)
             .join(Subnet.network)
@@ -52,9 +51,20 @@ class FloatingIPRepository(BaseRepository[FloatingIP]):
 
     async def get_by_org(self, organization_id: int) -> list[FloatingIP]:
         result = await self._session.execute(
-            select(FloatingIP).where(FloatingIP.organization_id == organization_id)
+            select(FloatingIP)
+            .where(FloatingIP.organization_id == organization_id)
+            .order_by(FloatingIP.id)
         )
         return list(result.scalars().all())
+
+    async def get_by_id_and_org(self, floating_ip_id: int, organization_id: int) -> FloatingIP | None:
+        result = await self._session.execute(
+            select(FloatingIP).where(
+                FloatingIP.id == floating_ip_id,
+                FloatingIP.organization_id == organization_id,
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def get_by_instance(self, instance_id: int) -> FloatingIP | None:
         result = await self._session.execute(

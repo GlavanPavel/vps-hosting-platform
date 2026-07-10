@@ -10,7 +10,7 @@ class Organization(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
-    # OpenStack project this org maps to — populated after OS project provisioning
+    # OpenStack project this org maps to
     openstack_project_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     openstack_project_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -20,6 +20,8 @@ class Organization(Base):
     networks: Mapped[list["Network"]] = relationship("Network", back_populates="organization")
     security_groups: Mapped[list["SecurityGroup"]] = relationship("SecurityGroup", back_populates="organization")
     floating_ips: Mapped[list["FloatingIP"]] = relationship("FloatingIP", back_populates="organization")
+    volumes: Mapped[list["Volume"]] = relationship("Volume", back_populates="organization")
+    images: Mapped[list["Image"]] = relationship("Image", back_populates="organization")
 
 
 class User(Base):
@@ -29,7 +31,9 @@ class User(Base):
     organization_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False, default="owner")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    refresh_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     organization: Mapped["Organization"] = relationship("Organization", back_populates="users")

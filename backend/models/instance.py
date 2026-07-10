@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, DateTime, ForeignKey
+from sqlalchemy import String, Integer, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from core.database import Base
@@ -31,6 +31,10 @@ class Instance(Base):
     # private IP assigned by OpenStack on the tenant subnet (populated after BUILD)
     private_ip_address: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
+    # cumulative seconds this instance has spent ACTIVE — incremented by the
+    # meter_usage Beat task; the basis for usage/cost reporting
+    running_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     organization: Mapped["Organization"] = relationship("Organization", back_populates="instances")
@@ -44,3 +48,5 @@ class Instance(Base):
     floating_ip: Mapped["FloatingIP | None"] = relationship(
         "FloatingIP", back_populates="instance", uselist=False
     )
+    # block-storage volumes attached to this instance
+    volumes: Mapped[list["Volume"]] = relationship("Volume", back_populates="instance")

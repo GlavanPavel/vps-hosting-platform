@@ -2,6 +2,8 @@ from fastapi import HTTPException
 from core.unit_of_work import UnitOfWork
 from models.security_group import SecurityGroup, SecurityGroupRule
 from schemas.security_group import SecurityGroupCreate, SecurityGroupResponse
+from domain.events import SecurityGroupCreated, SecurityGroupDeletionRequested
+from domain.dispatcher import dispatch
 
 
 async def create_security_group(
@@ -25,6 +27,15 @@ async def create_security_group(
     await uow.security_groups.add(sg)
     await uow.commit()
     await uow.refresh(sg)
+
+    dispatch(SecurityGroupCreated(
+        security_group_id=sg.id,
+        name=sg.name,
+        description=sg.description or "",
+    ))
+
+    # re-fetch with rules eager-loaded — lazy loading is not allowed in async context
+    sg = await uow.security_groups.get_by_id_and_org(sg.id, organization_id)
     return SecurityGroupResponse.model_validate(sg)
 
 
@@ -39,6 +50,12 @@ async def delete_security_group(
     sg = await uow.security_groups.get_by_id_and_org(sg_id, organization_id)
     if not sg:
         raise HTTPException(status_code=404, detail="Security group not found")
+
+    openstack_id = sg.openstack_id
     await uow.security_groups.delete(sg)
     await uow.commit()
+
+    if openstack_id:
+        dispatch(SecurityGroupDeletionRequested(openstack_id=openstack_id))
+
     return {"message": "Security group deleted"}

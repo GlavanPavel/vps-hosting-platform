@@ -22,8 +22,18 @@ class Settings(BaseSettings):
     OS_USER_DOMAIN_NAME: str = "Default"
     OS_PROJECT_DOMAIN_NAME: str = "Default"
 
-    # openstack networking — the external provider network for floating IP allocation
+    # openstack networking
     OS_EXTERNAL_NETWORK: str = "public"
+
+    # jwt auth
+    JWT_SECRET_KEY: str = "devsecretsecretkey"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    COOKIE_SECURE: bool = False
+    COOKIE_SAMESITE: str = "lax"
+
+    FRONTEND_ORIGIN: str = "http://localhost:3000"
 
     # influxdb
     INFLUXDB_URL: str = "http://localhost:8086"

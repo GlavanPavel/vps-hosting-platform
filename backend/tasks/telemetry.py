@@ -6,7 +6,6 @@ from core.influx import write_metric
 
 @celery_app.task(name="collect_telemetry_data")
 def poll_instance_metrics():
-    # Connection is created inside the task — not at import time
     conn = openstack.connect(
         auth_url=config.OS_AUTH_URL,
         project_name=config.OS_PROJECT_NAME,

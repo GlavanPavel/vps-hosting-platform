@@ -2,7 +2,11 @@ from fastapi import HTTPException
 from core.unit_of_work import UnitOfWork
 from models.network import Network, Subnet
 from schemas.network import NetworkCreate, NetworkResponse
-from domain.events import NetworkProvisioningStarted, SubnetProvisioningStarted
+from domain.events import (
+    NetworkProvisioningStarted,
+    SubnetProvisioningStarted,
+    NetworkDeletionRequested,
+)
 from domain.dispatcher import dispatch
 
 
@@ -27,7 +31,8 @@ async def create_network(
         name=network.name,
     ))
 
-    await uow.refresh(network)
+    # re-fetch with subnets eager-loaded — lazy loading is not allowed in async context
+    network = await uow.networks.get_by_id_and_org(network.id, organization_id)
     return NetworkResponse.model_validate(network)
 
 
@@ -40,6 +45,25 @@ async def delete_network(uow: UnitOfWork, network_id: int, organization_id: int)
     network = await uow.networks.get_by_id_and_org(network_id, organization_id)
     if not network:
         raise HTTPException(status_code=404, detail="Network not found")
+
+    attached = await uow.instances.count_by_subnet_ids([s.id for s in network.subnets])
+    if attached:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Network has {attached} instance(s) attached — delete them first",
+        )
+
+    # capture before the row (and its cascade-deleted subnets) is gone
+    openstack_network_id = network.openstack_network_id
+    openstack_router_id = network.openstack_router_id
     await uow.networks.delete(network)
     await uow.commit()
+
+    # may be None if Celery never finished provisioning
+    if openstack_network_id:
+        dispatch(NetworkDeletionRequested(
+            openstack_network_id=openstack_network_id,
+            openstack_router_id=openstack_router_id,
+        ))
+
     return {"message": "Network deleted"}
