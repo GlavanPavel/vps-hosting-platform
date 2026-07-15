@@ -8,7 +8,7 @@
 
 A VPS provisioning platform built on top of OpenStack. Users create virtual machines, networks, volumes, security groups, floating IPs and snapshots from a web UI.
 
-![](.github/architecture.png)
+![](.github/architecture.svg)
 
 ## Overview
 
