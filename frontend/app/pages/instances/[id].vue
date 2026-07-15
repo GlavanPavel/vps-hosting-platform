@@ -644,8 +644,7 @@ const { data: instance, pending, refresh } = await useAsyncData(
 	() => api<InstanceDetailResponse>(`/instances/${id}`),
 );
 
-// floating IPs are managed as separate resources — fetched here so we can offer the
-// reserved (available) ones to attach and find this instance's IP id to detach
+// floating IPs are managed as separate resources
 const { data: floatingIps, refresh: refreshFloatingIps } = await useAsyncData(
 	`instance-fips-${id}`,
 	() => api<FloatingIPResponse[]>("/floating-ips/"),
@@ -657,7 +656,7 @@ const attachedFip = computed(() =>
 	(floatingIps.value ?? []).find(f => f.instance_id === Number(id)) ?? null,
 );
 
-// the instance's own event log — lifecycle, errors and warnings, newest first
+// instance event log
 const { data: events, refresh: refreshEvents } = await useAsyncData(
 	`instance-events-${id}`,
 	() => api<InstanceEventResponse[]>(`/instances/${id}/events?limit=50`),
@@ -697,9 +696,7 @@ const ranges = [
 const range = ref("-1h");
 
 async function loadMetrics() {
-	// load whenever the instance has been provisioned — the telemetry persists in
-	// InfluxDB, so the CPU history stays visible even after a stop/reboot (not just
-	// while ACTIVE)
+	// load whenever the instance has been provisioned
 	const osId = instance.value?.openstack_id;
 	if (!osId) return;
 	try {
@@ -707,15 +704,13 @@ async function loadMetrics() {
 		metrics.value = res.data;
 	}
 	catch {
-		// telemetry endpoint may transiently fail — keep last good data
+		// keep last good data
 	}
 }
 
 // re-fetch immediately when the user switches the range
 watch(range, () => loadMetrics());
 
-// vCPUs / RAM / root disk come from the backend (flavor specs in core/flavors.py),
-// so the detail page shows accurate specs without the frontend guessing.
 const totalVcpu = computed(() => instance.value?.vcpus ?? 1);
 
 const ramDisplay = computed(() => {
@@ -814,7 +809,7 @@ async function snapshot() {
 	try {
 		await api(`/instances/${id}/snapshot`, { method: "POST", body: { name: name.trim().slice(0, 40) } });
 		toast.success("Snapshot started — track it on Images.");
-		await navigateTo("/images"); // watch it go snapshotting → active there
+		await navigateTo("/images");
 	}
 	catch (e: unknown) {
 		const err = e as { data?: { detail?: string } };

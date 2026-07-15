@@ -34,12 +34,11 @@ export function useApi() {
 		catch (e: unknown) {
 			const status = (e as { response?: { status?: number } })?.response?.status;
 			if (status === 401 && !noRetry) {
-				// access token expired → refresh once and retry the original request
+				// access token expired, send refresh token
 				if (await refreshToken()) {
 					return await $fetch<T>(request, fetchOptions);
 				}
-				// refresh failed → the session is truly over; the auth-redirect plugin
-				// watches the store and bounces to /login when user becomes null
+				// refresh failed
 				store.user = null;
 			}
 			throw e;

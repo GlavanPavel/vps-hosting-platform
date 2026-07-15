@@ -1,4 +1,3 @@
-"""Shared FastAPI dependencies."""
 from typing import Annotated
 
 import jwt

@@ -59,15 +59,13 @@ async def create_instance(uow: UnitOfWork, data: InstanceRequest, user_id: int) 
 
     count = data.count or 1
 
-    # an existing volume attaches to exactly one server, so it can't be shared
-    # across a multi-instance launch
     if count > 1 and data.attach_volume_ids:
         raise HTTPException(
             status_code=422,
             detail="Attaching existing volumes is only supported when launching a single instance",
         )
 
-    # validate any existing volumes the user wants attached (must be available)
+    # validate any existing volumes the user wants attached
     if data.attach_volume_ids:
         volumes = await uow.volumes.get_by_ids_and_org(data.attach_volume_ids, user.organization_id)
         if len(volumes) != len(set(data.attach_volume_ids)):
